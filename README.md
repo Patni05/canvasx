@@ -1,5 +1,7 @@
 # Hand-Drawn Whiteboard
 
+[![CI](https://github.com/Patni05/handdrawn-whiteboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Patni05/handdrawn-whiteboard/actions/workflows/ci.yml)
+
 An infinite-canvas whiteboard with a hand-drawn aesthetic: shapes, arrows that bind to
 them, freehand drawing, text with real handwriting fonts, images, a laser pointer,
 export, and end-to-end-encrypted live collaboration.
@@ -15,7 +17,9 @@ npm run server       # ws://localhost:3002 — only needed for live collaboratio
 ```
 
 ```bash
+npm run check        # typecheck + verify + build — run this before pushing
 npm run typecheck    # tsc --noEmit
+npm run verify       # the property checks (see Verified)
 npm run build        # typecheck + production build
 ```
 
@@ -23,12 +27,13 @@ npm run build        # typecheck + production build
 
 | Key | Tool | | Key | Tool |
 |---|---|---|---|---|
-| `v` `1` | Selection | | `p` `7` | Draw (freehand) |
-| `r` `2` | Rectangle | | `t` `8` | Text |
+| `v` `1` | Select | | `t` `8` | Text |
+| `r` `2` | Rectangle | | `9` | Image |
 | `d` `3` | Diamond | | `e` `0` | Eraser |
 | `o` `4` | Ellipse | | `k` | Laser pointer |
 | `a` `5` | Arrow | | `h` | Hand (pan) |
 | `l` `6` | Line | | `q` | Keep tool active |
+| `p` `7` | Draw (freehand) | | | |
 
 `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo · `Ctrl+D` duplicate · `Ctrl+G` / `Ctrl+Shift+G`
 group/ungroup · `Ctrl+A` select all · `Ctrl+C/V/X` clipboard · `Ctrl+[` / `Ctrl+]`
@@ -40,6 +45,14 @@ draws from centre or duplicate-drags, `Ctrl` resizes from centre.
 
 Double-click: empty canvas → text · a shape → label inside it · a line/arrow → point
 editor · a group → drill in.
+
+Images arrive by toolbar button, drag-and-drop or paste — PNG, JPG, SVG, WebP, GIF,
+AVIF — and are ordinary elements, so they move, resize, rotate and layer like anything
+else.
+
+**Selection persists.** It survives moving, resizing, rotating and restyling, and is
+dropped only by clicking empty canvas, `Escape`, an explicit deselect, or switching
+tool.
 
 ## Architecture
 
@@ -93,6 +106,32 @@ unloaded family silently returns the *fallback's* metrics, so every wrap, bound 
 box would be computed wrong and then visibly reflow. Nothing renders until
 `document.fonts.ready`.
 
+**A text element's box is a result, not an input** ([text.ts](src/element/text.ts)).
+Glyphs do not derive from `width`/`height`, so rewriting those resizes the selection box
+and nothing else. Text therefore has its own resize semantics: corners scale `fontSize`,
+side handles set `autoResize: false` and pin a wrap width, and the box is re-measured
+from the content either way so the handles stay glued to the glyphs. `textWrapWidth()` is
+the single source of truth for where lines break — the canvas, the SVG exporter and the
+DOM textarea all read it, because three copies of that rule can disagree and make text
+jump the moment you click away.
+
+**The editor owns "don't draw what I'm editing"** ([TextEditor.tsx](src/ui/TextEditor.tsx)).
+While a textarea is mounted over an element, the canvas must not paint that element too,
+or you get doubled glyphs offset by the baseline difference. `renderStatic` skips it, and
+the editor invalidates the static layer on mount and unmount — putting the invalidation
+at each call site that opens an editor works right up until someone adds one more.
+
+**Selected means draggable anywhere in the box**
+([selection.ts](src/scene/selection.ts)). Shapes default to a transparent background, and
+an unfilled shape only hit-tests near its *outline* — so dragging one from the middle
+reads as a click on empty canvas. Once something is selected its whole box is a drag
+target, as in Figma.
+
+**Icons are stroked SVG in `currentColor`** ([Icons.tsx](src/ui/Icons.tsx)). Emoji glyphs
+are colour bitmaps the OS renders; CSS cannot recolour them, so they turn to mud on a
+dark panel and no filter fixes it. Drawn as paths instead, an icon is exactly as visible
+as the text beside it and inverts with the theme for free.
+
 **Collaboration needs no server authority** ([sync.ts](src/collab/sync.ts)). Higher
 `version` wins; on a tie, lower `versionNonce` wins. Both peers run the identical
 comparison and converge on the same answer with no round trip. The relay
@@ -128,6 +167,11 @@ Two of these caught real bugs rather than merely confirming what was already tru
 
 They live in [`scripts/verify/`](scripts/verify) and run in CI on every push.
 
+**What this does not cover.** Anything needing a real canvas context or a real browser:
+text measurement and wrapping, the render loop, every gesture, and all of the visual
+design. `measureText` has no headless equivalent here, so the text metrics are checked by
+eye. Treat green CI as "the maths and the build are sound", not "the app works".
+
 ## Fonts
 
 `Caveat` (hand-drawn), `Nunito` (normal), `JetBrains Mono` (code) — all SIL OFL 1.1,
@@ -146,13 +190,19 @@ Honest gaps against [build.md](build.md):
 - **SVG font subsetting** (spec §10.2) — exports embed the full latin subset (~85KB)
   rather than only the glyphs used. Needs a tool like `glyphhanger`.
 - **Binding gap is a constant 4** rather than measured at bind time.
-- **Multi-select resize does not scale stroke widths**, though the spec's Phase 2
-  criterion says it should — stroke widths are a discrete set (1/2/4) the style panel
-  has to be able to represent, and scaling turns them into arbitrary floats. Rotated
-  elements also distort slightly under non-uniform multi-select resize: that needs a
-  shear, which the `x/y/w/h/angle` model cannot express.
 - **Delta-based history** (spec §9) — history is snapshot-based and does not merge with
   remote edits, so undo in a live session is local-only.
+
+Two deliberate departures from the spec, rather than omissions:
+
+- **Multi-select resize does not scale stroke widths**, though the spec's Phase 2
+  criterion says it should. Stroke widths are a discrete set (1/2/4) the style panel has
+  to be able to display, and scaling turns them into arbitrary floats it cannot. Rotated
+  elements also distort slightly under non-uniform multi-select resize: that needs a
+  shear, which the `x/y/w/h/angle` model cannot express.
+- **Shape geometry is normalized during the drag**, not fixed up on release as the spec
+  describes. Same visual result, but no downstream code ever sees a negative extent —
+  which kills a class of edge cases in hit-testing and bounds.
 
 ## Licence note
 
