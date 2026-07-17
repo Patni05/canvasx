@@ -1341,6 +1341,136 @@ input:focus-visible {
   }
 }
 
+/* ------------------------------------------------------------- mobile */
+
+/*
+ * One breakpoint, one rearrangement.
+ *
+ * The desktop layout assumes a wide viewport and a mouse: a centred toolbar, a
+ * 202px rail down the left, and chrome in all four corners. On a 390px phone
+ * that is roughly 900px of fixed-width furniture fighting over 390px, with the
+ * canvas underneath all of it.
+ *
+ * So on a phone the toolbar moves to the bottom — where a thumb actually
+ * reaches — and everything optional gets out of the way.
+ */
+@media (max-width: 768px) {
+  /*
+   * A single scrollable row, not a wrapped block. Thirteen tools wrap to three
+   * rows and eat a third of the canvas; swiping a row costs nothing.
+   */
+  .toolbar {
+    top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    right: 8px;
+    transform: none;
+    max-width: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Without this flex shrinks every button to fit and they stop being tappable. */
+  .tool,
+  .toolbar-divider,
+  .insert-menu {
+    flex: none;
+  }
+
+  /* 44px is the smallest reliable touch target; 36 is a mouse size. */
+  .tool {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* A tooltip under the thumb is worse than none, and there is no hover anyway. */
+  [data-tooltip]::after {
+    display: none;
+  }
+
+  /* Shortcut hints are meaningless without a keyboard. */
+  .tool[data-key]::before {
+    display: none;
+  }
+
+  /*
+   * The style rail becomes a sheet above the toolbar. Capped at 45vh and
+   * scrollable: with a plugin's own panel it can be tall, and a sheet that
+   * covers the canvas defeats the point of editing on it.
+   */
+  .left-rail {
+    top: auto;
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    right: 8px;
+    max-height: 45vh;
+  }
+
+  .style-panel,
+  .actions {
+    width: auto;
+  }
+
+  /* Undo/redo is not optional on a phone, so it moves up beside the menu.
+     Grid and snap are, so they go. */
+  .canvas-options {
+    top: 16px;
+    bottom: auto;
+    left: 64px;
+    transform: none;
+    padding: 3px;
+  }
+
+  .canvas-options .toolbar-divider,
+  .canvas-options .tool:nth-last-child(-n + 2) {
+    display: none;
+  }
+
+  /* Pinch replaced these, and the panels below are desktop affordances. */
+  .zoom-controls,
+  .stats-panel,
+  .dev-panel,
+  .presence {
+    display: none;
+  }
+
+  .share-button {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .search {
+    transform: translateX(-50%) translateY(48px);
+    width: calc(100vw - 16px);
+  }
+
+  .insert-panel {
+    width: min(320px, calc(100vw - 16px));
+    /* The toolbar is at the bottom now, so its menu must open upward. */
+    top: auto;
+    bottom: 52px;
+  }
+
+  .menu-panel {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+}
+
+/* A tall thin phone in landscape has almost no vertical room to give. */
+@media (max-height: 480px) {
+  .left-rail {
+    max-height: 40vh;
+  }
+}
+
 /* --------------------------------------------------------- context menu */
 
 .context-menu {

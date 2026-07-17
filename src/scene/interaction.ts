@@ -42,10 +42,10 @@ import {
   type TextElement,
 } from '../element/types';
 import { record } from '../state/history';
-import { getAppState, setAppState } from '../state/store';
+import { getAppState, setAppState, ZOOM_MAX, ZOOM_MIN } from '../state/store';
 import { getVisibleSceneBounds, viewportToScene, type ScenePoint } from '../utils/coords';
 import { rotatePoint, type Point } from '../utils/geometry';
-import { type Bounds } from '../utils/math';
+import { clamp, type Bounds } from '../utils/math';
 import {
   duplicateSelected,
   expandSelectionToGroups,
@@ -127,7 +127,20 @@ export type Interaction =
   | { kind: 'freedrawing'; element: FreedrawElement }
   /** Elements marked for erase but not yet committed, so the gesture is one undo step. */
   | { kind: 'erasing'; pending: Set<string>; last: ScenePoint }
-  | { kind: 'laser' };
+  | { kind: 'laser' }
+  /**
+   * Two fingers: pan and zoom together.
+   *
+   * A touch device has no wheel and no space bar, so without this the canvas is
+   * infinite and unnavigable — you can only ever see where you started.
+   */
+  | {
+      kind: 'pinching';
+      startDistance: number;
+      startZoom: number;
+      /** The scene point under the initial midpoint. It stays under the fingers. */
+      anchor: ScenePoint;
+    };
 
 let interaction: Interaction = { kind: 'idle' };
 
@@ -359,6 +372,25 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
   let spaceHeld = false;
   let activePointerId: number | null = null;
 
+  /**
+   * Every finger currently down, in viewport coordinates.
+   *
+   * A single activePointerId is enough for a mouse, which only ever has one
+   * cursor. A touch screen does not: pan and zoom are a two-finger gesture, and
+   * with `touch-action: none` the browser will not supply them either. Without
+   * this map the canvas is infinite and unreachable on a phone.
+   */
+  const pointers = new Map<number, { x: number; y: number }>();
+
+  const midpoint = () => {
+    const [a, b] = [...pointers.values()];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+  const spread = () => {
+    const [a, b] = [...pointers.values()];
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  };
+
   const rect = () => container.getBoundingClientRect();
   const scenePoint = (event: PointerEvent | MouseEvent): ScenePoint =>
     viewportToScene(event.clientX, event.clientY, getAppState(), rect());
@@ -503,8 +535,54 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
     interaction = { kind: 'dragging', origin, offsets, moved: false, guides: [] };
   };
 
+  /**
+   * A second finger landed. Whatever one finger had started is not what the user
+   * meant — abandon it and pan/zoom instead.
+   *
+   * Without this, every pinch leaves a stray rectangle behind: the first finger
+   * had already begun dragging one out.
+   */
+  const beginPinch = () => {
+    switch (interaction.kind) {
+      // In-progress elements are not in the scene yet, so dropping the state is
+      // all it takes to discard them.
+      case 'drawing':
+      case 'drawingLinear':
+      case 'freedrawing':
+      case 'multiPoint':
+        break;
+      case 'erasing':
+        // Nothing was committed; the pending set just goes away.
+        invalidateStatic();
+        break;
+      default:
+        break;
+    }
+
+    activePointerId = null;
+    eraserCursor = null;
+    interaction = {
+      kind: 'pinching',
+      startDistance: spread(),
+      startZoom: getAppState().zoom,
+      anchor: viewportToScene(midpoint().x, midpoint().y, getAppState(), rect()),
+    };
+    container.style.cursor = '';
+    invalidateStatic();
+    invalidateInteractive();
+  };
+
   const onPointerDown = (event: PointerEvent) => {
     const state = getAppState();
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    // Two fingers always means navigate, whatever tool is selected.
+    if (pointers.size === 2) {
+      beginPinch();
+      return;
+    }
+    if (pointers.size > 2) return;
+
     // Report the new activity as soon as the gesture resolves, rather than
     // waiting for the next mouse move to carry it.
     queueMicrotask(() => broadcastActivity(currentActivity()));
@@ -715,6 +793,37 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
   const onPointerMove = (event: PointerEvent) => {
     const state = getAppState();
 
+    if (pointers.has(event.pointerId)) {
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    /**
+     * Pinch: zoom by how far the fingers spread, and pan so the scene point that
+     * was under the initial midpoint stays under the current one. Doing both from
+     * the same anchor is what makes the canvas feel stuck to the fingers rather
+     * than zooming toward some other place while you drag.
+     */
+    if (interaction.kind === 'pinching') {
+      if (pointers.size < 2) return;
+      const mid = midpoint();
+      const distance = spread();
+      if (interaction.startDistance < 1 || distance < 1) return;
+
+      const zoom = clamp(
+        interaction.startZoom * (distance / interaction.startDistance),
+        ZOOM_MIN,
+        ZOOM_MAX,
+      );
+      const box = rect();
+      setAppState({
+        zoom,
+        scrollX: (mid.x - box.left) / zoom - interaction.anchor.x,
+        scrollY: (mid.y - box.top) / zoom - interaction.anchor.y,
+      });
+      invalidateStatic();
+      return;
+    }
+
     // Presence: throttled inside, and a no-op when not in a room.
     const at = scenePoint(event);
     broadcastPointer(at.x, at.y, currentActivity());
@@ -784,7 +893,7 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
     }
 
     // Hover feedback, only when nothing is in progress.
-    if (activePointerId === null) {
+    if (activePointerId === null && pointers.size < 2) {
       if (state.activeTool === 'eraser') {
         // The eraser needs to show where it will bite.
         eraserCursor = at;
@@ -999,6 +1108,15 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
   // ----------------------------------------------------------- pointer up
 
   const onPointerUp = (event: PointerEvent) => {
+    pointers.delete(event.pointerId);
+
+    if (interaction.kind === 'pinching') {
+      // The remaining finger must NOT silently become a draw: the user is still
+      // mid-gesture and never asked for one.
+      if (pointers.size < 2) interaction = { kind: 'idle' };
+      return;
+    }
+
     if (activePointerId !== event.pointerId) return;
     activePointerId = null;
     container.releasePointerCapture(event.pointerId);
@@ -1122,6 +1240,11 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
   };
 
   const onPointerCancel = (event: PointerEvent) => {
+    pointers.delete(event.pointerId);
+    if (interaction.kind === 'pinching' && pointers.size < 2) {
+      interaction = { kind: 'idle' };
+      return;
+    }
     if (activePointerId !== event.pointerId) return;
     activePointerId = null;
     if (interaction.kind !== 'multiPoint') interaction = { kind: 'idle' };
