@@ -12,6 +12,15 @@ export interface PluginEditorProps<Data> {
   onCommit: (data: Data) => void;
   /** Write back and move to another part, without closing. */
   onCommitAndMove: (data: Data, part: string | null) => void;
+  /**
+   * Call from your cleanup with the current draft.
+   *
+   * Clicking blank canvas unmounts the editor before blur can fire, and a
+   * detached node never fires focusout — so without this the edit is lost. The
+   * core decides whether the teardown is real; under StrictMode's simulated
+   * unmount this does nothing, so calling it unconditionally is correct.
+   */
+  onUnmount: (data: Data) => void;
 }
 
 export interface PluginStylePanelProps<Data> {

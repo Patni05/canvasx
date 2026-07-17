@@ -28,6 +28,7 @@ const CHECKS = [
   ['darkfilter', 'dark-mode invert stays self-inverse and in sync'],
   ['plugins', 'a new element type needs zero core changes'],
   ['highlight', 'code tokenizes correctly, fast enough per keystroke'],
+  ['teardown', 'an editor tells a real unmount from StrictMode'],
 ];
 
 const outDir = mkdtempSync(join(tmpdir(), 'verify-'));

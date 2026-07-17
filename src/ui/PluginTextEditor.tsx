@@ -114,15 +114,38 @@ function useCommit(element: CustomElement) {
 }
 
 /**
+ * True when this editor is genuinely being torn down, rather than React
+ * pretending.
+ *
+ * StrictMode double-invokes effects in development: mount, cleanup, mount. The
+ * component is NOT going away, and a cleanup that commits would fire the instant
+ * the editor opened — closing it again before a key could be pressed, and (for
+ * an editor whose commit is once-only) burning the guard so every later save
+ * silently no-ops.
+ *
+ * A real teardown is one the app already knows about: whatever unmounted us —
+ * the canvas clearing the editing state — has already moved on. If we are still
+ * the active editor, nobody asked us to leave, so this is StrictMode.
+ */
+export const isRealTeardown = (elementId: string): boolean =>
+  getAppState().editingPluginElementId !== elementId;
+
+/**
  * Save on the way out, however we leave.
  *
  * `latest` is read at teardown rather than captured, so the cleanup sees what
  * was actually typed rather than whatever existed when the effect first ran.
  */
-function useCommitOnUnmount(commit: () => void) {
+function useCommitOnUnmount(elementId: string, commit: () => void) {
   const latest = useRef(commit);
   latest.current = commit;
-  useEffect(() => () => latest.current(), []);
+
+  useEffect(
+    () => () => {
+      if (isRealTeardown(elementId)) latest.current();
+    },
+    [elementId],
+  );
 }
 
 /** The static layer must stop — and later resume — drawing what the overlay paints. */
@@ -185,6 +208,9 @@ function CustomEditorHost({ element, plugin, part }: EditorProps) {
         dark={dark}
         onCommit={(data) => finish(data)}
         onCommitAndMove={(data, next) => finish(data, next)}
+        onUnmount={(data) => {
+          if (isRealTeardown(element.id)) finish(data);
+        }}
       />
     </div>
   );
@@ -223,7 +249,9 @@ function TextareaEditor({ element, plugin, part }: EditorProps) {
 
   // Clicking the canvas unmounts us before blur can fire; without this the
   // edit is lost.
-  useCommitOnUnmount(() => finish(editing.setText(element as never, value, part)));
+  useCommitOnUnmount(element.id, () =>
+    finish(editing.setText(element as never, value, part)),
+  );
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const node = event.currentTarget;

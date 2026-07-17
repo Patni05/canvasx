@@ -36,7 +36,7 @@ import { tokenizeLine } from './highlight';
  * hundred KB for 22 language modes. Here, both layers and the canvas call the
  * same tokenizeLine, so they cannot disagree by construction.
  */
-export function CodeEditor({ element, dark, onCommit }: PluginEditorProps<CodeData>) {
+export function CodeEditor({ element, dark, onCommit, onUnmount }: PluginEditorProps<CodeData>) {
   const data = element.data;
   const palette = THEMES[data.theme];
 
@@ -77,13 +77,15 @@ export function CodeEditor({ element, dark, onCommit }: PluginEditorProps<CodeDa
   /**
    * Save on the way out, however we leave.
    *
-   * Clicking blank canvas clears the editing state and unmounts this editor.
-   * A detached node never fires focusout, so onBlur does not run — and the code
-   * typed since the editor opened would be silently discarded. The commit is
-   * guarded upstream, so a blur AND an unmount racing is harmless.
+   * Clicking blank canvas clears the editing state and unmounts this editor. A
+   * detached node never fires focusout, so onBlur does not run and the code
+   * typed since the editor opened would be silently discarded.
+   *
+   * onUnmount is guarded by the core — under StrictMode's simulated unmount it
+   * is a no-op — so calling it unconditionally here is correct.
    */
-  const latest = useRef(commit);
-  latest.current = commit;
+  const latest = useRef<() => void>(() => {});
+  latest.current = () => onUnmount({ ...data, code: value });
   useEffect(() => () => latest.current(), []);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
