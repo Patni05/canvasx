@@ -1,8 +1,8 @@
-# Hand-Drawn Whiteboard
+# CanvasX
 
 [![CI](https://github.com/Patni05/handdrawn-whiteboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Patni05/handdrawn-whiteboard/actions/workflows/ci.yml)
 
-An infinite-canvas whiteboard with a hand-drawn aesthetic: shapes, arrows that bind to
+An infinite canvas for sketching, diagramming, notes and code, with a hand-drawn aesthetic: shapes, arrows that bind to
 them, freehand drawing, text with real handwriting fonts, images, a laser pointer,
 export, and end-to-end-encrypted live collaboration.
 
@@ -194,6 +194,19 @@ They live in [`scripts/verify/`](scripts/verify) and run in CI on every push.
 text measurement and wrapping, the render loop, every gesture, and all of the visual
 design. `measureText` has no headless equivalent here, so the text metrics are checked by
 eye. Treat green CI as "the maths and the build are sound", not "the app works".
+
+## Branding
+
+The name and icon live in three places, all generated from one source:
+
+- `favx.png` (1024x1024) is the source of truth. It is NOT served — at 1.4MB it
+  would be downloaded by every visitor to draw a 16px tab icon.
+- `public/favicon.ico` (16/32/48), `favicon-32.png`, `favicon-192.png` and
+  `apple-touch-icon.png` (180) are generated from it and total ~33KB.
+- The wordmark is [Brand.tsx](src/ui/Brand.tsx), beside the main menu.
+
+To change the icon, replace `favx.png` and re-run the resize (Pillow, LANCZOS —
+a ~32x downscale aliases badly with cheaper filters).
 
 ## Fonts
 

@@ -623,6 +623,55 @@ input:focus-visible {
   top: 16px;
   left: 16px;
   z-index: 3;
+  /* The brand and the menu button read as one top-left cluster. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- brand */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 11px;
+  background: var(--toolbar);
+  box-shadow: var(--shadow);
+  user-select: none;
+  /* Decoration only — never intercept a click meant for the canvas. */
+  pointer-events: none;
+}
+
+.brand-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  /* The source is 1024px; without this it resamples badly at 20px. */
+  image-rendering: auto;
+  flex: none;
+}
+
+.brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* The toolbar owns the middle; on a narrow window the wordmark yields first. */
+@media (max-width: 760px) {
+  .brand-name {
+    display: none;
+  }
+
+  .brand {
+    padding: 0 10px;
+  }
 }
 
 .island-button {

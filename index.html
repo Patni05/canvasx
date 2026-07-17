@@ -3,7 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Whiteboard</title>
+
+    <title>CanvasX</title>
+    <meta
+      name="description"
+      content="An infinite canvas for sketching, diagramming, notes and code."
+    />
+
+    <!--
+      Sizes generated from favx.png (1024x1024) rather than pointing at the
+      source: the raw file is 1.4MB, which every visitor would download on every
+      load just to draw a 16px tab icon. These total ~33KB.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Matches the canvas, so the browser chrome does not flash white first. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
   </head>
   <body>
     <div id="root"></div>
