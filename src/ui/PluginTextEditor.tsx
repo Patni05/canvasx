@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { mutateElement } from '../element/mutate';
 import { isCustomElement, type CustomElement } from '../element/types';
 import { getPluginFor } from '../plugins/registry';
@@ -6,7 +6,7 @@ import type { ElementPlugin } from '../plugins/types';
 import { DARK_MODE_FILTER, invalidateInteractive, invalidateStatic } from '../scene/render';
 import { scene } from '../scene/Scene';
 import { record } from '../state/history';
-import { setAppState, useAppState } from '../state/store';
+import { getAppState, setAppState, useAppState } from '../state/store';
 
 /**
  * Text editing for plugin elements.
@@ -66,9 +66,25 @@ interface EditorProps {
   part: string | null;
 }
 
-/** Commit, and either close or move to the next part. */
+/**
+ * Commit, and either close or move to the next part.
+ *
+ * The subtlety is WHO closed the editor.
+ *
+ * Clicking blank canvas clears the editing state, which unmounts this editor.
+ * The browser never fires focusout on a node that has already been detached, so
+ * onBlur does not run — and before this, everything typed since the editor
+ * opened was silently discarded. That is why the code only appeared after
+ * pressing PrtScn: that blurs the WINDOW while the textarea is still mounted, so
+ * blur fired and the commit finally happened.
+ *
+ * So the data write and the app-state change are separated. The write always
+ * happens. The app-state change only happens if we are still the active editor —
+ * on an unmount the canvas has already moved on, and re-selecting an element the
+ * user just clicked away from would be wrong.
+ */
 function useCommit(element: CustomElement) {
-  /** Guards the blur React fires while unmounting. */
+  /** First writer wins: blur, Escape and unmount can all race to commit. */
   const committed = useRef(false);
 
   return (data: unknown, nextPart?: string | null) => {
@@ -76,21 +92,37 @@ function useCommit(element: CustomElement) {
     committed.current = true;
 
     mutateElement(element, { data: data as Record<string, unknown> });
-    setAppState(
-      nextPart !== undefined
-        ? { editingPluginPart: nextPart }
-        : {
-            editingPluginElementId: null,
-            editingPluginPart: null,
-            // Stay selected after editing, as Figma does.
-            selectedElementIds: { [element.id]: true },
-          },
-    );
+
+    if (getAppState().editingPluginElementId === element.id) {
+      setAppState(
+        nextPart !== undefined
+          ? { editingPluginPart: nextPart }
+          : {
+              editingPluginElementId: null,
+              editingPluginPart: null,
+              // Stay selected after editing, as Figma does.
+              selectedElementIds: { [element.id]: true },
+            },
+      );
+    }
+
     scene.emit();
     invalidateStatic();
     invalidateInteractive();
     record();
   };
+}
+
+/**
+ * Save on the way out, however we leave.
+ *
+ * `latest` is read at teardown rather than captured, so the cleanup sees what
+ * was actually typed rather than whatever existed when the effect first ran.
+ */
+function useCommitOnUnmount(commit: () => void) {
+  const latest = useRef(commit);
+  latest.current = commit;
+  useEffect(() => () => latest.current(), []);
 }
 
 /** The static layer must stop — and later resume — drawing what the overlay paints. */
@@ -188,6 +220,10 @@ function TextareaEditor({ element, plugin, part }: EditorProps) {
   const style = editing.editorStyle(element as never, { dark, part });
   const commit = (nextPart?: string | null) =>
     finish(editing.setText(element as never, value, part), nextPart);
+
+  // Clicking the canvas unmounts us before blur can fire; without this the
+  // edit is lost.
+  useCommitOnUnmount(() => finish(editing.setText(element as never, value, part)));
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const node = event.currentTarget;

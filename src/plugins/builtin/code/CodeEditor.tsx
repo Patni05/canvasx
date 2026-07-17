@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PluginEditorProps } from '../../types';
 import type { CodeData } from './codeblock';
 import { CODE_METRICS, THEMES } from './theme';
@@ -73,6 +73,18 @@ export function CodeEditor({ element, dark, onCommit }: PluginEditorProps<CodeDa
   }, [value, data.language]);
 
   const commit = () => onCommit({ ...data, code: value });
+
+  /**
+   * Save on the way out, however we leave.
+   *
+   * Clicking blank canvas clears the editing state and unmounts this editor.
+   * A detached node never fires focusout, so onBlur does not run — and the code
+   * typed since the editor opened would be silently discarded. The commit is
+   * guarded upstream, so a blur AND an unmount racing is harmless.
+   */
+  const latest = useRef(commit);
+  latest.current = commit;
+  useEffect(() => () => latest.current(), []);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const node = event.currentTarget;
