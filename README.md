@@ -199,14 +199,33 @@ eye. Treat green CI as "the maths and the build are sound", not "the app works".
 
 The name and icon live in three places, all generated from one source:
 
-- `favx.png` (1024x1024) is the source of truth. It is NOT served — at 1.4MB it
-  would be downloaded by every visitor to draw a 16px tab icon.
+- `fav2.png` is the source of truth. It is NOT served: it is 560KB, and every
+  visitor would download it to draw a 16px tab icon.
 - `public/favicon.ico` (16/32/48), `favicon-32.png`, `favicon-192.png` and
-  `apple-touch-icon.png` (180) are generated from it and total ~33KB.
-- The wordmark is [Brand.tsx](src/ui/Brand.tsx), beside the main menu.
+  `apple-touch-icon.png` (180) are generated from it and total ~53KB.
+- The wordmark is [Brand.tsx](src/ui/Brand.tsx), beside the main menu. It reuses
+  `favicon-32.png` rather than a second copy of the mark.
 
-To change the icon, replace `favx.png` and re-run the resize (Pillow, LANCZOS —
-a ~32x downscale aliases badly with cheaper filters).
+The source arrives as artwork, not as an icon, so generating the set does three
+things beyond resizing:
+
+1. **Keys out the white background.** A favicon sits on the browser's tab
+   colour; a white tile looks like a sticker on a dark one. The white is flat
+   (64% pure #ffffff) so it keys cleanly. Alpha comes from each pixel's darkest
+   channel, normalised so the solid interior reaches full opacity — a flat scale
+   leaves it ~90% and the mark looks washed out. Colour is then un-premultiplied,
+   or every anti-aliased edge keeps a white halo baked in.
+2. **Trims to the artwork.** The source had 146px of dead margin on the left. At
+   16px that margin is most of the icon.
+3. **Pads to square**, since the source is 1060x992 and a favicon box is square —
+   resizing straight to 32x32 would squash the mark by 7%.
+
+Anything below ~3% alpha is forced to zero before trimming: `getbbox()` counts
+any non-zero alpha as content, and the corner pixel reads (254,254,254), so
+without that floor the trim finds nothing.
+
+To change the icon, replace the source and redo those steps (Pillow, LANCZOS — a
+~33x downscale aliases badly with cheaper filters).
 
 ## Fonts
 
