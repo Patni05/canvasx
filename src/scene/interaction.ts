@@ -25,6 +25,7 @@ import { mutateElement } from '../element/mutate';
 import { resizeBox, scaleElementIntoBox, type TransformBox } from '../element/resize';
 import { measureTextElement } from '../element/text';
 import { getPluginFor } from '../plugins/registry';
+import type { ElementPlugin } from '../plugins/types';
 import {
   isContainerElement,
   isCustomElement,
@@ -32,6 +33,7 @@ import {
   isLinearType,
   isShapeType,
   isTextElement,
+  type CustomElement,
   type ExcaliElement,
   type FreedrawElement,
   type LinearElement,
@@ -1161,8 +1163,32 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
     // Any plugin that declares editable text gets an editor, without this file
     // knowing which plugins those are.
     if (isCustomElement(hit)) {
-      if (getPluginFor(hit)?.editing) {
-        setAppState({ editingPluginElementId: hit.id, selectedElementIds: { [hit.id]: true } });
+      const editing = getPluginFor(hit)?.editing;
+      if (editing) {
+        /**
+         * Resolve WHICH sub-part was clicked — a table cell.
+         *
+         * This is the entry point for the whole parts mechanism, and it was
+         * missing: editingPluginPart stayed null, so the table's setText got a
+         * null part, hit its `if (!at) return element.data` guard and returned
+         * the data unchanged. Every keystroke was silently discarded on commit,
+         * and the editor covered the whole table instead of one cell, because a
+         * null part means "the whole element".
+         *
+         * A plugin without parts (a sticky) has no getPartAt and stays null,
+         * which is exactly right for it.
+         */
+        const part = resolvePart(hit, editing, pointer);
+
+        // A parts-based plugin with no part under the pointer has nowhere to
+        // write, so there is nothing to edit.
+        if (editing.getPartAt && part === null) return;
+
+        setAppState({
+          editingPluginElementId: hit.id,
+          editingPluginPart: part,
+          selectedElementIds: { [hit.id]: true },
+        });
         invalidateInteractive();
       }
       return;
@@ -1227,6 +1253,28 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
 }
 
 // -------------------------------------------------------------- transforms
+
+/**
+ * Which sub-part of a plugin element sits under a scene point.
+ *
+ * The contract says getPartAt receives ELEMENT-LOCAL coordinates — (0,0) at the
+ * element's top-left, rotation already undone — so the plugin can do plain
+ * arithmetic and never think about the viewport. Same conversion hitTestElement
+ * does, for the same reason.
+ */
+function resolvePart(
+  element: CustomElement,
+  editing: NonNullable<ElementPlugin<never>['editing']>,
+  scenePoint: ScenePoint,
+): string | null {
+  if (!editing.getPartAt) return null;
+
+  const local = rotatePoint(scenePoint, getElementCenter(element), -element.angle);
+  return editing.getPartAt(element as never, {
+    x: local.x - element.x,
+    y: local.y - element.y,
+  });
+}
 
 export const marqueeBounds = (a: ScenePoint, b: ScenePoint): Bounds => ({
   minX: Math.min(a.x, b.x),

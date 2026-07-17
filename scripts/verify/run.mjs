@@ -29,6 +29,7 @@ const CHECKS = [
   ['plugins', 'a new element type needs zero core changes'],
   ['highlight', 'code tokenizes correctly, fast enough per keystroke'],
   ['teardown', 'an editor tells a real unmount from StrictMode'],
+  ['table', 'table cell text persists into the data model'],
 ];
 
 const outDir = mkdtempSync(join(tmpdir(), 'verify-'));
