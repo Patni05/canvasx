@@ -1,13 +1,29 @@
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { setActiveTool } from '../scene/actions';
 import { insertImage } from '../scene/clipboard';
 import { getAppState, setAppState, useAppState, type ToolType } from '../state/store';
 import { viewportToScene } from '../utils/coords';
+import {
+  ArrowIcon,
+  DiamondIcon,
+  DrawIcon,
+  EllipseIcon,
+  EraserIcon,
+  HandIcon,
+  ImageIcon,
+  LaserIcon,
+  LineIcon,
+  LockIcon,
+  RectangleIcon,
+  SelectionIcon,
+  TextIcon,
+  UnlockIcon,
+} from './Icons';
 
 interface ToolDef {
   tool: ToolType;
   label: string;
-  glyph: string;
+  icon: ReactNode;
   keys: string[];
 }
 
@@ -15,22 +31,25 @@ interface ToolDef {
 export const IMAGE_ACCEPT =
   'image/png,image/jpeg,image/svg+xml,image/webp,image/gif,image/avif';
 
-const TOOLS: ToolDef[] = [
-  { tool: 'hand', label: 'Hand — pan the canvas', glyph: '✋', keys: ['h'] },
-  { tool: 'selection', label: 'Select', glyph: '⬉', keys: ['v', '1'] },
-  { tool: 'rectangle', label: 'Rectangle', glyph: '▭', keys: ['r', '2'] },
-  { tool: 'diamond', label: 'Diamond', glyph: '◇', keys: ['d', '3'] },
-  { tool: 'ellipse', label: 'Ellipse', glyph: '○', keys: ['o', '4'] },
-  { tool: 'arrow', label: 'Arrow', glyph: '↗', keys: ['a', '5'] },
-  { tool: 'line', label: 'Line', glyph: '╱', keys: ['l', '6'] },
-  { tool: 'freedraw', label: 'Draw', glyph: '✎', keys: ['p', '7'] },
-  { tool: 'text', label: 'Text', glyph: 'T', keys: ['t', '8'] },
-  { tool: 'eraser', label: 'Eraser', glyph: '⌫', keys: ['e', '0'] },
-  { tool: 'laser', label: 'Laser pointer', glyph: '✦', keys: ['k'] },
+const NAVIGATE: ToolDef[] = [
+  { tool: 'hand', label: 'Hand', icon: <HandIcon />, keys: ['h'] },
+  { tool: 'selection', label: 'Select', icon: <SelectionIcon />, keys: ['v', '1'] },
 ];
 
-/** Tools that only make sense in a group, kept visually apart. */
-const PRIMARY_COUNT = 2;
+const DRAW: ToolDef[] = [
+  { tool: 'rectangle', label: 'Rectangle', icon: <RectangleIcon />, keys: ['r', '2'] },
+  { tool: 'diamond', label: 'Diamond', icon: <DiamondIcon />, keys: ['d', '3'] },
+  { tool: 'ellipse', label: 'Ellipse', icon: <EllipseIcon />, keys: ['o', '4'] },
+  { tool: 'arrow', label: 'Arrow', icon: <ArrowIcon />, keys: ['a', '5'] },
+  { tool: 'line', label: 'Line', icon: <LineIcon />, keys: ['l', '6'] },
+  { tool: 'freedraw', label: 'Draw', icon: <DrawIcon />, keys: ['p', '7'] },
+  { tool: 'text', label: 'Text', icon: <TextIcon />, keys: ['t', '8'] },
+];
+
+const UTILITY: ToolDef[] = [
+  { tool: 'eraser', label: 'Eraser', icon: <EraserIcon />, keys: ['e', '0'] },
+  { tool: 'laser', label: 'Laser pointer', icon: <LaserIcon />, keys: ['k'] },
+];
 
 /** Key handling lives in useGlobalShortcuts — this is display and click only. */
 export function Toolbar() {
@@ -58,32 +77,34 @@ export function Toolbar() {
     await insertImage(file, at, { width: rect.width, height: rect.height });
   };
 
-  const renderTool = ({ tool, label, glyph, keys }: ToolDef) => (
+  const renderTool = ({ tool, label, icon, keys }: ToolDef) => (
     <button
       key={tool}
       className={tool === activeTool ? 'tool active' : 'tool'}
       onClick={() => setActiveTool(tool)}
       aria-label={`${label} — shortcut ${keys.join(' or ')}`}
       aria-pressed={tool === activeTool}
-      data-tooltip={`${label}  ${keys.join(' / ')}`}
+      data-tooltip={label}
+      data-key={keys[keys.length - 1]}
     >
-      <span aria-hidden="true">{glyph}</span>
+      {icon}
     </button>
   );
 
   return (
     <div className="toolbar island" role="toolbar" aria-label="Tools">
-      {TOOLS.slice(0, PRIMARY_COUNT).map(renderTool)}
+      {NAVIGATE.map(renderTool)}
       <span className="toolbar-divider" role="separator" />
-      {TOOLS.slice(PRIMARY_COUNT).map(renderTool)}
+      {DRAW.map(renderTool)}
 
       <button
         className="tool"
         onClick={() => fileInputRef.current?.click()}
         aria-label="Import an image — PNG, JPG, SVG or WebP"
-        data-tooltip="Import image  9"
+        data-tooltip="Image"
+        data-key="9"
       >
-        <span aria-hidden="true">🖼</span>
+        <ImageIcon />
       </button>
       <input
         ref={fileInputRef}
@@ -96,14 +117,18 @@ export function Toolbar() {
       />
 
       <span className="toolbar-divider" role="separator" />
+      {UTILITY.map(renderTool)}
+
+      <span className="toolbar-divider" role="separator" />
       <button
         className={toolLocked ? 'tool active' : 'tool'}
         onClick={() => setAppState({ toolLocked: !toolLocked })}
         aria-pressed={toolLocked}
         aria-label="Keep the selected tool active after drawing"
-        data-tooltip={`Keep tool active  q`}
+        data-tooltip={toolLocked ? 'Tool stays active' : 'Keep tool active'}
+        data-key="q"
       >
-        <span aria-hidden="true">{toolLocked ? '🔒' : '🔓'}</span>
+        {toolLocked ? <LockIcon /> : <UnlockIcon />}
       </button>
     </div>
   );

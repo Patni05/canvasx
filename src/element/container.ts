@@ -82,6 +82,8 @@ export function redrawBoundText(text: TextElement, container: ShapeElement): voi
     x: container.x + container.width / 2 - maxWidth / 2,
     y: container.y + container.height / 2 - metrics.height / 2,
     angle: container.angle,
+    // A label's width is always its container's, never its own content's.
+    autoResize: false,
   });
 }
 

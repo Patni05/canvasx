@@ -23,6 +23,7 @@ import { getElementAtPosition, getElementsInBounds, hitTestElement } from '../el
 import { pointsAreDegenerate, scalePoints, setAbsolutePoints } from '../element/linear';
 import { mutateElement } from '../element/mutate';
 import { resizeBox, scaleElementIntoBox, type TransformBox } from '../element/resize';
+import { measureTextElement } from '../element/text';
 import {
   isContainerElement,
   isLinearElement,
@@ -34,6 +35,7 @@ import {
   type LinearElement,
   type LinearPoint,
   type ShapeElement,
+  type TextElement,
 } from '../element/types';
 import { record } from '../state/history';
 import { getAppState, setAppState } from '../state/store';
@@ -69,6 +71,8 @@ interface ElementSnapshot {
   angle: number;
   /** Present only for linear elements, which resize by scaling their points. */
   points?: LinearPoint[];
+  /** Present only for text, which resizes by scaling its type. */
+  fontSize?: number;
 }
 
 /**
@@ -154,6 +158,7 @@ const snapshotOf = (element: ExcaliElement): ElementSnapshot => ({
   height: element.height,
   angle: element.angle,
   points: isLinearElement(element) ? element.points.map(([x, y]) => [x, y]) : undefined,
+  fontSize: isTextElement(element) ? element.fontSize : undefined,
 });
 
 function normalizeWheel(event: WheelEvent): { x: number; y: number } {
@@ -855,7 +860,7 @@ export function attachInteractionHandlers(container: HTMLElement): () => void {
           preserveAspect: event.shiftKey,
           fromCenter: event.ctrlKey || event.metaKey,
         });
-        applyResize(interaction.startBox, next, interaction.snapshots);
+        applyResize(interaction.startBox, next, interaction.snapshots, interaction.handle);
         invalidateStatic();
         invalidateInteractive();
         return;
@@ -1186,6 +1191,7 @@ function applyResize(
   startBox: TransformBox,
   nextBox: TransformBox,
   snapshots: ElementSnapshot[],
+  handle: Exclude<HandleName, 'rotate'>,
 ): void {
   const scaleX = startBox.width === 0 ? 1 : nextBox.width / startBox.width;
   const scaleY = startBox.height === 0 ? 1 : nextBox.height / startBox.height;
@@ -1196,6 +1202,11 @@ function applyResize(
     const snapshot = snapshots[0];
     const element = scene.getById(snapshot.id);
     if (!element) return;
+
+    if (isTextElement(element) && snapshot.fontSize !== undefined) {
+      resizeText(element, snapshot, startBox, nextBox, handle);
+      return;
+    }
 
     if (isLinearElement(element) && snapshot.points) {
       // A linear element resizes by scaling its points; x,y then has to be
@@ -1247,6 +1258,64 @@ function applyResize(
       height: scaled.height,
     });
   }
+}
+
+const MIN_FONT_SIZE = 4;
+
+/**
+ * Text does not resize like a shape. Its box is a *result* of the glyphs, not
+ * an input to them — rewriting width/height alone changes the selection box and
+ * nothing else, which is why text looked unresizable.
+ *
+ *   corner handle -> scale fontSize, then let the box re-measure to fit
+ *   side handle   -> pin an explicit wrap width and reflow inside it
+ *
+ * Either way the box is recomputed from the text afterwards, so the handles
+ * stay glued to the glyphs instead of drifting away from them.
+ */
+function resizeText(
+  element: TextElement,
+  snapshot: ElementSnapshot,
+  startBox: TransformBox,
+  nextBox: TransformBox,
+  handle: Exclude<HandleName, 'rotate'>,
+): void {
+  const startFontSize = snapshot.fontSize ?? element.fontSize;
+  const horizontalOnly = handle === 'e' || handle === 'w';
+
+  if (horizontalOnly) {
+    // Pin the width the user dragged to and reflow within it.
+    const width = Math.max(nextBox.width, element.fontSize);
+    mutateElement(element, { autoResize: false, width });
+    const measured = measureTextElement({ ...element, width });
+    mutateElement(element, {
+      width: measured.width,
+      height: measured.height,
+      // Anchor the far edge: dragging the west handle must not shunt the text.
+      x: handle === 'w' ? nextBox.x + nextBox.width - measured.width : nextBox.x,
+      y: nextBox.y,
+    });
+    return;
+  }
+
+  // Corners and vertical sides scale the type itself, off the height ratio.
+  const ratio = startBox.height === 0 ? 1 : nextBox.height / startBox.height;
+  const fontSize = Math.max(MIN_FONT_SIZE, startFontSize * ratio);
+
+  mutateElement(element, { fontSize });
+  const measured = measureTextElement({ ...element, fontSize });
+
+  // Keep the corner the user is NOT dragging where it was, exactly as a shape
+  // would, so the gesture feels identical. ('e'/'w' already returned above.)
+  const anchorRight = handle === 'nw' || handle === 'sw';
+  const anchorBottom = handle === 'nw' || handle === 'n' || handle === 'ne';
+
+  mutateElement(element, {
+    width: measured.width,
+    height: measured.height,
+    x: anchorRight ? startBox.x + startBox.width - measured.width : startBox.x,
+    y: anchorBottom ? startBox.y + startBox.height - measured.height : startBox.y,
+  });
 }
 
 function applyRotation(

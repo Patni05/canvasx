@@ -1,6 +1,6 @@
 import type { RoughSVG } from 'roughjs/bin/svg';
 import { getElementCenter } from '../element/bounds';
-import { FONT_FAMILY, baselineOffset, wrapText } from '../element/text';
+import { FONT_FAMILY, baselineOffset, textWrapWidth, wrapText } from '../element/text';
 import {
   isFreedrawElement,
   isImageElement,
@@ -45,9 +45,13 @@ function textToSvg(element: TextElement, usedFamilies: Set<string>): string {
         ? element.width
         : 0;
 
-  const lines = element.containerId
-    ? wrapText(element.text, element.fontSize, element.fontFamily, element.width)
-    : element.text.split('\n');
+  // Same wrap rule as the canvas, so an export cannot break lines differently.
+  const lines = wrapText(
+    element.text,
+    element.fontSize,
+    element.fontFamily,
+    textWrapWidth(element),
+  );
 
   const spans = lines
     .map((line, index) => {

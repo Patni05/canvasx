@@ -162,3 +162,42 @@ export function measureText(
   }
   return { lines, width, height: lines.length * lineHeightPx(fontSize, lineHeight) };
 }
+
+/**
+ * The width a text element wraps at, or null when it hugs its own content.
+ *
+ * The single source of truth for wrapping. The canvas renderer, the SVG
+ * exporter and the DOM textarea all read it, so they cannot disagree about
+ * where a line breaks — and text that breaks differently in the editor than on
+ * the canvas is exactly how "the text jumped when I clicked away" happens.
+ */
+export const textWrapWidth = (element: {
+  width: number;
+  containerId: string | null;
+  autoResize: boolean;
+}): number | null => (element.containerId !== null || !element.autoResize ? element.width : null);
+
+/** Recompute a free text element's box from its content. */
+export function measureTextElement(element: {
+  text: string;
+  fontSize: number;
+  fontFamily: FontFamily;
+  lineHeight: number;
+  width: number;
+  containerId: string | null;
+  autoResize: boolean;
+}): { width: number; height: number } {
+  const wrapAt = textWrapWidth(element);
+  const metrics = measureText(
+    element.text,
+    element.fontSize,
+    element.fontFamily,
+    element.lineHeight,
+    wrapAt,
+  );
+  return {
+    // A pinned width is the user's choice and must survive re-measurement.
+    width: wrapAt ?? Math.max(metrics.width, element.fontSize),
+    height: Math.max(metrics.height, lineHeightPx(element.fontSize, element.lineHeight)),
+  };
+}

@@ -189,6 +189,9 @@ export function newTextElement(
     verticalAlign: containerId ? 'middle' : 'top',
     containerId,
     lineHeight: DEFAULT_LINE_HEIGHT,
+    // A label is wrapped by its container; free text hugs itself until the user
+    // drags a side handle and pins a width.
+    autoResize: containerId === null,
   };
 }
 

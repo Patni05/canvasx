@@ -12,6 +12,7 @@ import { invalidateInteractive, invalidateStatic } from '../scene/render';
 import { scene } from '../scene/Scene';
 import { record } from '../state/history';
 import { setAppState, useAppState } from '../state/store';
+import { MenuIcon } from './Icons';
 
 const CANVAS_COLORS = ['#ffffff', '#f8f9fa', '#f5faff', '#fffce8', '#fdf8f6'];
 
@@ -110,14 +111,13 @@ export function MainMenu() {
   return (
     <div className="main-menu" ref={menuRef}>
       <button
-        className="tool island-button"
+        className="island-button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Main menu"
-        title="Menu"
       >
-        <span aria-hidden="true">☰</span>
+        <MenuIcon />
       </button>
 
       <input

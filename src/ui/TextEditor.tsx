@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onElementsDeleted } from '../element/binding';
 import { getContainerOf, redrawBoundText } from '../element/container';
 import { mutateElement } from '../element/mutate';
-import { fontString, measureText } from '../element/text';
+import { fontString, measureText, measureTextElement, textWrapWidth } from '../element/text';
 import { isTextElement } from '../element/types';
 import { invalidateInteractive, invalidateStatic } from '../scene/render';
 import { scene } from '../scene/Scene';
@@ -40,6 +40,20 @@ export function TextEditor() {
     setValue(current && isTextElement(current) ? current.text : '');
   }, [editingId]);
 
+  /**
+   * While this editor is mounted for an element, renderStatic must not draw
+   * that element — the textarea is already painting those glyphs, and both at
+   * once gives doubled, offset text.
+   *
+   * renderStatic already skips it, but only repaints when told to. Owning the
+   * invalidation here, rather than at each of the five call sites that open an
+   * editor, means the rule cannot be forgotten by the sixth.
+   */
+  useEffect(() => {
+    invalidateStatic();
+    return () => invalidateStatic();
+  }, [editingId]);
+
   useLayoutEffect(() => {
     if (!editingId) return;
     const node = textareaRef.current;
@@ -73,8 +87,9 @@ export function TextEditor() {
       if (container) {
         redrawBoundText(text, container);
       } else {
-        const metrics = measureText(value, text.fontSize, text.fontFamily, text.lineHeight);
-        mutateElement(text, { width: metrics.width, height: metrics.height });
+        // Re-measure through the shared rule so a pinned wrap width survives.
+        const measured = measureTextElement({ ...text, text: value });
+        mutateElement(text, { width: measured.width, height: measured.height });
       }
       // Stay selected after editing, exactly as Figma does.
       setAppState({
@@ -90,15 +105,12 @@ export function TextEditor() {
     record();
   };
 
-  // Live sizing so the box grows under the caret as you type.
-  const metrics = measureText(
-    value || ' ',
-    text.fontSize,
-    text.fontFamily,
-    text.lineHeight,
-    container ? text.width : null,
-  );
-  const boxWidth = container ? text.width : Math.max(metrics.width, text.fontSize);
+  // Live sizing so the box grows under the caret as you type. Measured with the
+  // element's own wrap rule, so the editor breaks lines exactly where the canvas
+  // will — otherwise the text visibly jumps the moment you click away.
+  const wrapAt = textWrapWidth(text);
+  const metrics = measureText(value || ' ', text.fontSize, text.fontFamily, text.lineHeight, wrapAt);
+  const boxWidth = wrapAt ?? Math.max(metrics.width, text.fontSize);
   const boxHeight = Math.max(metrics.height, text.fontSize * text.lineHeight);
 
   // Scene → viewport: the textarea is a DOM node, so it lives in CSS pixels.
@@ -137,8 +149,9 @@ export function TextEditor() {
         opacity: text.opacity / 100,
         transform: text.angle ? `rotate(${text.angle}rad)` : undefined,
         transformOrigin: 'center center',
-        // A bound label wraps to its container; free text grows sideways.
-        whiteSpace: container ? 'pre-wrap' : 'pre',
+        // Wrap only when a width is pinned; otherwise grow sideways.
+        whiteSpace: wrapAt === null ? 'pre' : 'pre-wrap',
+        overflowWrap: wrapAt === null ? 'normal' : 'break-word',
       }}
       spellCheck={false}
       autoComplete="off"

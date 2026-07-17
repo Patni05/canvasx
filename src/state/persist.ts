@@ -160,6 +160,8 @@ function reviveElement(raw: Partial<ExcaliElement>): ExcaliElement | null {
       verticalAlign: text.verticalAlign ?? 'top',
       containerId: text.containerId ?? null,
       lineHeight: text.lineHeight ?? DEFAULT_LINE_HEIGHT,
+      // Files written before autoResize existed had hug-the-text behaviour.
+      autoResize: text.autoResize ?? text.containerId == null,
     };
   }
 

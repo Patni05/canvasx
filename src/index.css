@@ -29,6 +29,8 @@ body,
   --accent-border: #a5d8ff;
   --control-border: #dee2e6;
   --separator: #f1f3f5;
+  /* Icons sit a touch below body text so the active one can step forward. */
+  --icon: #343a40;
   --shadow: 0 2px 4px rgb(0 0 0 / 5%), 0 6px 20px rgb(0 0 0 / 8%);
   --shadow-raised: 0 4px 8px rgb(0 0 0 / 6%), 0 12px 32px rgb(0 0 0 / 12%);
 
@@ -54,6 +56,12 @@ body,
   --accent-border: #3a5c9e;
   --control-border: #2a2a2a;
   --separator: #2a2a2a;
+  /*
+   * Near-white, not grey. Stroked SVG at 1.5px reads much lighter than solid
+   * text at the same colour, so icons need to sit close to full white to feel
+   * equally present — this is the actual fix for "icons barely visible".
+   */
+  --icon: #e8e8e8;
   --shadow: 0 2px 4px rgb(0 0 0 / 40%), 0 6px 20px rgb(0 0 0 / 50%);
   --shadow-raised: 0 4px 8px rgb(0 0 0 / 50%), 0 12px 32px rgb(0 0 0 / 60%);
 
@@ -104,10 +112,17 @@ body,
   cursor: grab;
 }
 
-/* The eraser and laser draw their own on-canvas cursor. */
-.canvas-stack[data-tool='eraser'],
-.canvas-stack[data-tool='laser'] {
+/* The eraser draws its own ring, so the OS arrow would only get in the way. */
+.canvas-stack[data-tool='eraser'] {
   cursor: none;
+}
+
+/*
+ * The laser keeps a real cursor: you need to see exactly where the beam starts
+ * before you press, and a crosshair reads as precise in a way an arrow doesn't.
+ */
+.canvas-stack[data-tool='laser'] {
+  cursor: crosshair;
 }
 
 /*
@@ -168,41 +183,59 @@ body,
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 6px;
+  gap: 2px;
+  padding: 5px;
   background: var(--toolbar);
   border-radius: 14px;
   box-shadow: var(--shadow-raised);
   /* Frosted glass, where the browser supports it. */
   backdrop-filter: blur(12px) saturate(150%);
+  /* A hairline of light along the top edge reads as a raised surface. */
+  background-image: linear-gradient(rgb(255 255 255 / 4%), transparent 40%);
+}
+
+/* Wrap rather than overflow the viewport on a narrow window. */
+@media (max-width: 640px) {
+  .toolbar {
+    max-width: calc(100vw - 32px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 
 .tool {
   position: relative;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: var(--text);
-  font-size: 15px;
-  line-height: 1;
+  /* Icons are stroked in currentColor, so this one line drives their contrast. */
+  color: var(--icon);
   cursor: pointer;
   transition:
-    background 120ms ease,
-    color 120ms ease,
-    transform 120ms cubic-bezier(0.2, 0, 0, 1);
+    background 130ms ease,
+    color 130ms ease,
+    transform 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.tool svg {
+  width: 20px;
+  height: 20px;
+  /* Crisper on the 20px grid the icons were drawn on. */
+  shape-rendering: geometricPrecision;
 }
 
 .tool:hover {
   background: var(--hover);
+  color: var(--text);
 }
 
 .tool:active {
   /* A small give on press: the click feels like it landed. */
-  transform: scale(0.94);
+  transform: scale(0.92);
 }
 
 .tool.active {
@@ -211,28 +244,30 @@ body,
   box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
-/*
- * Emoji glyphs render in full colour and go muddy on a dark panel. Stripping
- * the colour and re-tinting them from currentColor keeps every icon legible in
- * both themes at the same contrast as real text.
- */
-.tool span,
-.canvas-options .option span,
-.dev-buttons button span {
-  filter: grayscale(1) contrast(0.85) brightness(1.15);
-  opacity: 0.92;
+/* The shortcut, tucked in the corner — discoverable without a tooltip. */
+.tool[data-key]::before {
+  content: attr(data-key);
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted);
+  pointer-events: none;
+  transition: color 130ms ease;
 }
 
-.tool.active span {
-  filter: none;
-  opacity: 1;
+.tool.active[data-key]::before {
+  color: var(--accent);
 }
 
 .toolbar-divider {
   width: 1px;
-  height: 22px;
-  margin: 0 3px;
+  height: 20px;
+  margin: 0 4px;
   background: var(--separator);
+  flex: none;
 }
 
 /* -------------------------------------------------------------- tooltip */
@@ -389,24 +424,40 @@ body,
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 5px;
+  background: var(--toolbar);
+  border-radius: 12px;
+  box-shadow: var(--shadow-raised);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
-.canvas-options .option {
-  width: 32px;
-  height: 30px;
-  border: 0;
+/* Tooltips on the bottom bar would fall off the viewport. */
+.canvas-options [data-tooltip]::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(3px);
+}
+
+.canvas-options [data-tooltip]:hover::after,
+.canvas-options [data-tooltip]:focus-visible::after {
+  transform: translateX(-50%) translateY(0);
+}
+
+/*
+ * Disabled has to read as unavailable without becoming invisible — 0.35 opacity
+ * on a near-black panel is indistinguishable from an empty square.
+ */
+.tool:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+.tool:disabled:hover {
   background: transparent;
-}
-
-.canvas-options .option:hover:not(:disabled) {
-  background: var(--hover);
-}
-
-.canvas-options .option.active {
-  background: var(--accent-bg);
-  box-shadow: inset 0 0 0 1px var(--accent-border);
+  color: var(--muted);
 }
 
 /* ------------------------------------------------------------ controls */
@@ -448,18 +499,34 @@ input:focus-visible {
 }
 
 .island-button {
+  display: grid;
+  place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 11px;
   border: 1px solid var(--panel-border);
-  background: var(--panel);
-  color: var(--text);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  background: var(--toolbar);
+  color: var(--icon);
+  box-shadow: var(--shadow);
   cursor: pointer;
+  transition:
+    background 130ms ease,
+    color 130ms ease,
+    transform 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.island-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .island-button:hover {
   background: var(--hover);
+  color: var(--text);
+}
+
+.island-button:active {
+  transform: scale(0.94);
 }
 
 .menu-panel {

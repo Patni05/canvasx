@@ -2,7 +2,7 @@ import rough from 'roughjs';
 import type { RoughCanvas } from 'roughjs/bin/canvas';
 import { getAbsolutePoints, getElementBounds, getElementCenter, getUnrotatedBounds } from '../element/bounds';
 import type { TransformBox } from '../element/resize';
-import { baselineOffset, fontString, wrapText } from '../element/text';
+import { baselineOffset, fontString, textWrapWidth, wrapText } from '../element/text';
 import {
   hasPoints,
   isFreedrawElement,
@@ -270,12 +270,21 @@ function renderInteractive(layer: Layer, now: number): void {
       ? scene.getById(state.editingLinearElementId)
       : null;
 
+  // A live textarea already frames the text; a selection box and eight handles
+  // on top of it just fight the caret for attention.
+  const editingText = state.editingTextElementId !== null;
+
   // Point editing replaces the resize box entirely — two overlapping sets of
   // handles on the same element would be unusable.
   if (editingLinear && !editingLinear.isDeleted) {
     drawElementOutline(layer.ctx, editingLinear, state.zoom);
     drawLinearPointHandles(layer.ctx, editingLinear, state.zoom);
-  } else if (selected.length > 0 && interaction.kind !== 'drawing' && interaction.kind !== 'drawingLinear') {
+  } else if (
+    !editingText &&
+    selected.length > 0 &&
+    interaction.kind !== 'drawing' &&
+    interaction.kind !== 'drawingLinear'
+  ) {
     // Individual outlines only help when they aren't just tracing the box.
     if (selected.length > 1) {
       for (const element of selected) drawElementOutline(layer.ctx, element, state.zoom);
@@ -563,10 +572,13 @@ function drawText(element: TextElement, ctx: CanvasRenderingContext2D): void {
         ? element.width
         : 0;
 
-  // A bound label re-wraps to its container; free text keeps its own newlines.
-  const lines = element.containerId
-    ? wrapText(element.text, element.fontSize, element.fontFamily, element.width)
-    : element.text.split('\n');
+  // One shared rule for where lines break — see textWrapWidth.
+  const lines = wrapText(
+    element.text,
+    element.fontSize,
+    element.fontFamily,
+    textWrapWidth(element),
+  );
 
   lines.forEach((line, index) => {
     ctx.fillText(line, anchorX, baselineOffset(element.fontSize, element.lineHeight, index));

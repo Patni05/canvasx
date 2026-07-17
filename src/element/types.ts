@@ -114,6 +114,13 @@ export interface TextElement extends BaseElement {
   containerId: string | null;
   /** Unitless multiplier of fontSize. */
   lineHeight: number;
+  /**
+   * True (the default) means the box hugs the text and grows as you type.
+   * Dragging a side handle sets it false and pins an explicit wrap width, so
+   * the text reflows inside a box the user chose. Corner handles scale
+   * fontSize and leave this alone.
+   */
+  autoResize: boolean;
 }
 
 export interface ImageElement extends BaseElement {

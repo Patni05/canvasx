@@ -3,6 +3,7 @@ import { invalidateStatic } from '../scene/render';
 import { scene } from '../scene/Scene';
 import { canRedo, canUndo, redo, undo } from '../state/history';
 import { setAppState, useAppState } from '../state/store';
+import { GridIcon, RedoIcon, SnapIcon, UndoIcon } from './Icons';
 
 const DEFAULT_GRID_SIZE = 20;
 
@@ -16,46 +17,46 @@ export function CanvasOptions() {
   return (
     <div className="canvas-options island" role="group" aria-label="Canvas options">
       <button
-        className="option"
+        className="tool"
         onClick={undo}
         disabled={!canUndo()}
-        aria-label="Undo (Ctrl+Z)"
-        title="Undo (Ctrl+Z)"
+        aria-label="Undo"
+        data-tooltip="Undo  Ctrl+Z"
       >
-        <span aria-hidden="true">↺</span>
+        <UndoIcon />
       </button>
       <button
-        className="option"
+        className="tool"
         onClick={redo}
         disabled={!canRedo()}
-        aria-label="Redo (Ctrl+Shift+Z)"
-        title="Redo (Ctrl+Shift+Z)"
+        aria-label="Redo"
+        data-tooltip="Redo  Ctrl+Shift+Z"
       >
-        <span aria-hidden="true">↻</span>
+        <RedoIcon />
       </button>
 
-      <span className="toolbar-divider" />
+      <span className="toolbar-divider" role="separator" />
 
       <button
-        className={gridSize ? 'option active' : 'option'}
+        className={gridSize ? 'tool active' : 'tool'}
         onClick={() => {
           setAppState({ gridSize: gridSize ? null : DEFAULT_GRID_SIZE });
           invalidateStatic();
         }}
         aria-pressed={gridSize !== null}
         aria-label="Toggle grid and grid snapping"
-        title="Grid (snaps while on)"
+        data-tooltip="Grid — snaps while on"
       >
-        <span aria-hidden="true">#</span>
+        <GridIcon />
       </button>
       <button
-        className={snapEnabled ? 'option active' : 'option'}
+        className={snapEnabled ? 'tool active' : 'tool'}
         onClick={() => setAppState({ objectsSnapModeEnabled: !snapEnabled })}
         aria-pressed={snapEnabled}
         aria-label="Toggle snapping to other objects"
-        title="Snap to objects"
+        data-tooltip="Snap to objects"
       >
-        <span aria-hidden="true">⌖</span>
+        <SnapIcon />
       </button>
     </div>
   );
