@@ -13,6 +13,8 @@ const KIND_LABEL: Record<SearchKind, string> = {
   image: 'Image',
   link: 'Link',
   shape: 'Shape',
+  // Anything a plugin created; the row's snippet names which kind it is.
+  element: 'Element',
 };
 
 /** Wrap the matched run so the eye lands on it without scanning the row. */

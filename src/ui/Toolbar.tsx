@@ -20,6 +20,7 @@ import {
   TextIcon,
   UnlockIcon,
 } from './Icons';
+import { InsertMenu } from './InsertMenu';
 
 interface ToolDef {
   tool: ToolType;
@@ -116,6 +117,9 @@ export function Toolbar() {
         tabIndex={-1}
         aria-hidden="true"
       />
+
+      {/* Everything in here comes from the plugin registry, not from this file. */}
+      <InsertMenu />
 
       <span className="toolbar-divider" role="separator" />
       {UTILITY.map(renderTool)}

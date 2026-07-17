@@ -2,12 +2,14 @@ import { DEFAULT_LINE_HEIGHT } from '../element/text';
 import {
   isLinearType,
   isShapeType,
+  type CustomElement,
   type ExcaliElement,
   type FreedrawElement,
   type ImageElement,
   type LinearElement,
   type TextElement,
 } from '../element/types';
+import { getPlugin } from '../plugins/registry';
 import { mutateElement } from '../element/mutate';
 import { loadBitmap } from '../scene/files';
 import { scene } from '../scene/Scene';
@@ -86,7 +88,9 @@ function reviveElement(raw: Partial<ExcaliElement>): ExcaliElement | null {
     isLinearType(raw.type) ||
     raw.type === 'freedraw' ||
     raw.type === 'text' ||
-    raw.type === 'image';
+    raw.type === 'image' ||
+    // Every plugin element, whatever it is — the core does not enumerate them.
+    raw.type === 'custom';
   if (!known) return null;
   if (typeof raw.x !== 'number' || typeof raw.y !== 'number') return null;
 
@@ -132,6 +136,22 @@ function reviveElement(raw: Partial<ExcaliElement>): ExcaliElement | null {
       startArrowhead: linear.startArrowhead ?? null,
       endArrowhead: linear.endArrowhead ?? (raw.type === 'arrow' ? 'arrow' : null),
     };
+  }
+
+  if (raw.type === 'custom') {
+    const custom = raw as Partial<CustomElement>;
+    if (typeof custom.pluginId !== 'string') return null;
+
+    const plugin = getPlugin(custom.pluginId);
+    // Keep elements whose plugin is not loaded: the data is intact, the
+    // renderer shows a placeholder, and re-adding the plugin brings them back.
+    // Dropping them would silently destroy work on an old file.
+    const data = plugin?.reviveData
+      ? plugin.reviveData(custom.data)
+      : ((custom.data ?? {}) as Record<string, unknown>);
+    if (data === null) return null;
+
+    return { ...base, type: 'custom', pluginId: custom.pluginId, data };
   }
 
   if (raw.type === 'image') {

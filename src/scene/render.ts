@@ -5,14 +5,17 @@ import type { TransformBox } from '../element/resize';
 import { baselineOffset, fontString, textWrapWidth, wrapText } from '../element/text';
 import {
   hasPoints,
+  isCustomElement,
   isFreedrawElement,
   isImageElement,
   isLinearElement,
   isTextElement,
+  type CustomElement,
   type ExcaliElement,
   type ImageElement,
   type TextElement,
 } from '../element/types';
+import { getPluginFor } from '../plugins/registry';
 import { drawRemoteCursors, remoteCursorsAnimating } from '../collab/presence';
 import { getBitmap } from './files';
 import { getFreedrawPath } from './freedraw';
@@ -559,6 +562,8 @@ function drawElement(element: ExcaliElement, layer: Layer, options: DrawOptions 
     drawText(element, ctx);
   } else if (isImageElement(element)) {
     drawImage(element, ctx, options.compensateInvert === true);
+  } else if (isCustomElement(element)) {
+    drawCustom(element, ctx, options.compensateInvert === true);
   } else {
     for (const drawable of getShape(element)) layer.rc.draw(drawable);
   }
@@ -609,6 +614,45 @@ function drawImage(
   ctx.translate(element.width / 2, element.height / 2);
   ctx.scale(scaleX, scaleY);
   ctx.drawImage(bitmap, -element.width / 2, -element.height / 2, element.width, element.height);
+}
+
+/**
+ * The whole of the core's knowledge about plugin elements: look up the owner and
+ * hand it a context. Adding an element type does not touch this function.
+ */
+function drawCustom(
+  element: CustomElement,
+  ctx: CanvasRenderingContext2D,
+  dark: boolean,
+): void {
+  const plugin = getPluginFor(element);
+
+  if (!plugin) {
+    // A file can outlive the plugin that wrote it. Draw a placeholder rather
+    // than throwing or silently vanishing: the data is still there, and the
+    // element still moves and deletes like anything else.
+    ctx.save();
+    ctx.strokeStyle = '#adb5bd';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, element.width, element.height);
+    ctx.fillStyle = '#adb5bd';
+    ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(`Unknown: ${element.pluginId}`, 6, 16);
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+  try {
+    plugin.render(element as never, { ctx, zoom: getAppState().zoom, dark });
+  } catch (error) {
+    // One bad plugin must not take down the frame — every other element on the
+    // canvas still has to draw.
+    console.error(`Plugin "${element.pluginId}" failed to render`, error);
+  } finally {
+    ctx.restore();
+  }
 }
 
 function drawText(element: TextElement, ctx: CanvasRenderingContext2D): void {

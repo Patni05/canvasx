@@ -1,6 +1,7 @@
 import type { Drawable, Options } from 'roughjs/bin/core';
 import type { RoughGenerator } from 'roughjs/bin/generator';
 import {
+  isCustomElement,
   isFreedrawElement,
   isImageElement,
   isLinearElement,
@@ -174,9 +175,17 @@ function generateSimpleShape(element: ShapeElement, generator: RoughGenerator): 
  */
 export function generateShape(element: ExcaliElement, generator: RoughGenerator): Drawable[] {
   if (isLinearElement(element)) return generateLinear(element, generator);
-  // These three never touch rough: freedraw fills a perfect-freehand outline as
-  // a Path2D, text goes to fillText, images to drawImage. The renderer handles
-  // each directly and never asks for a Drawable.
-  if (isFreedrawElement(element) || isTextElement(element) || isImageElement(element)) return [];
+  // These never touch rough: freedraw fills a perfect-freehand outline as a
+  // Path2D, text goes to fillText, images to drawImage, and a plugin element
+  // draws itself. The renderer handles each directly and never asks for a
+  // Drawable.
+  if (
+    isFreedrawElement(element) ||
+    isTextElement(element) ||
+    isImageElement(element) ||
+    isCustomElement(element)
+  ) {
+    return [];
+  }
   return [generateSimpleShape(element, generator)];
 }

@@ -149,6 +149,12 @@ export const SnapIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PlusIcon = ({ className }: IconProps) => (
+  <svg {...BASE} className={className} aria-hidden="true">
+    <path d="M10 4.2v11.6M4.2 10h11.6" />
+  </svg>
+);
+
 export const SearchIcon = ({ className }: IconProps) => (
   <svg {...BASE} className={className} aria-hidden="true">
     <circle cx="8.8" cy="8.8" r="5.2" />

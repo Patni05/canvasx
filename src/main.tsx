@@ -4,6 +4,9 @@ import { App } from './App';
 import { attachCollabBroadcast, resumeSessionFromUrl } from './collab/sync';
 import { invalidateTextMeasureCache } from './element/text';
 import { loadFonts } from './fonts/load';
+// Registers every built-in plugin as a side effect. Must run before restore(),
+// so persistence can revive plugin data through its owner.
+import './plugins/builtin';
 import { initHistory } from './state/history';
 import { attachAutoSave, restore } from './state/persist';
 import './index.css';

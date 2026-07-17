@@ -3,7 +3,12 @@ import type { FillStyle, FontFamily, StrokeStyle } from '../state/store';
 export type ElementType =
   | 'rectangle' | 'diamond' | 'ellipse'
   | 'arrow' | 'line'
-  | 'freedraw' | 'text' | 'image' | 'frame';
+  | 'freedraw' | 'text' | 'image' | 'frame'
+  /**
+   * Every plugin element, whatever it is. One member covers all of them, which
+   * is the point: the core enumerates its own built-ins and nothing else.
+   */
+  | 'custom';
 
 export type ShapeType = 'rectangle' | 'diamond' | 'ellipse';
 export type LinearType = 'arrow' | 'line';
@@ -137,13 +142,32 @@ export interface ImageElement extends BaseElement {
   status: 'pending' | 'saved' | 'error';
 }
 
+/**
+ * The open element type: everything a plugin creates.
+ *
+ * The core treats this as a box and nothing more. Because it carries the same
+ * x/y/width/height/angle as every other element, move, resize, rotate, z-order,
+ * group, delete, undo, snapping, export and collaboration all work for it
+ * without any plugin doing anything.
+ *
+ * `data` is opaque here by design — the moment the core reads a field out of it,
+ * that field stops belonging to the plugin and this stops being extensible.
+ */
+export interface CustomElement<Data = Record<string, unknown>> extends BaseElement {
+  type: 'custom';
+  /** Which plugin owns this element and knows how to draw it. */
+  pluginId: string;
+  data: Data;
+}
+
 /** Widens if a later phase adds frame elements. */
 export type ExcaliElement =
   | ShapeElement
   | LinearElement
   | FreedrawElement
   | TextElement
-  | ImageElement;
+  | ImageElement
+  | CustomElement;
 
 /** Accepts any string so it can narrow a ToolType directly, not just an ElementType. */
 export const isShapeType = (type: string): type is ShapeType =>
@@ -163,6 +187,9 @@ export const isTextElement = (element: ExcaliElement): element is TextElement =>
 
 export const isImageElement = (element: ExcaliElement): element is ImageElement =>
   element.type === 'image';
+
+export const isCustomElement = (element: ExcaliElement): element is CustomElement =>
+  element.type === 'custom';
 
 /** Shapes that can hold a bound text label. */
 export const isContainerElement = (element: ExcaliElement): element is ShapeElement =>

@@ -7,8 +7,10 @@ import {
 } from '../utils/geometry';
 import { boundsIntersect, type Bounds } from '../utils/math';
 import { getAbsolutePoints, getElementBounds, getElementCenter, getUnrotatedBounds } from './bounds';
+import { getPluginFor } from '../plugins/registry';
 import {
   hasPoints,
+  isCustomElement,
   isImageElement,
   isTextElement,
   type ExcaliElement,
@@ -118,6 +120,15 @@ export function hitTestElement(
 
   // Text and images are solid blocks: anywhere in the box counts, no outline case.
   if (isTextElement(element) || isImageElement(element)) return insideRect(point, element, 0);
+
+  if (isCustomElement(element)) {
+    // The box is right for almost every plugin, so it is the default; a plugin
+    // with a non-rectangular silhouette can override.
+    const plugin = getPluginFor(element);
+    return plugin?.hitTest
+      ? plugin.hitTest(element as never, { x: point.x - element.x, y: point.y - element.y })
+      : insideRect(point, element, 0);
+  }
 
   const filled = element.backgroundColor !== 'transparent';
 
