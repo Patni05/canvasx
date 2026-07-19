@@ -5,6 +5,9 @@ export const FONT_FAMILY: Record<FontFamily, string> = {
   1: 'Caveat',
   2: 'Nunito',
   3: 'JetBrainsMono',
+  4: 'Lora',
+  5: 'ComicNeue',
+  6: 'ArchitectsDaughter',
 };
 
 /** Fallbacks only matter if a woff2 failed to load; measurements assume the real face. */
@@ -12,6 +15,9 @@ const FALLBACK: Record<FontFamily, string> = {
   1: 'cursive',
   2: 'sans-serif',
   3: 'monospace',
+  4: 'serif',
+  5: 'cursive',
+  6: 'cursive',
 };
 
 export const DEFAULT_LINE_HEIGHT = 1.25;

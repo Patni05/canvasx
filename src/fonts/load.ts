@@ -10,15 +10,23 @@
  * So: nothing renders until these resolve. font-display:block (not swap) means
  * a brief invisible period rather than a full canvas reflow mid-session.
  */
-const FACES: [family: string, url: string][] = [
+/**
+ * The one font manifest. Both the loader here and the SVG export embedder in
+ * scene/export.ts read it, so a new face is added in exactly one place — the
+ * family name must still match FONT_FAMILY in element/text.ts.
+ */
+export const FONT_FACES: [family: string, url: string][] = [
   ['Caveat', '/fonts/Caveat-Regular.woff2'],
   ['Nunito', '/fonts/Nunito-Regular.woff2'],
   ['JetBrainsMono', '/fonts/JetBrainsMono-Regular.woff2'],
+  ['Lora', '/fonts/Lora-Regular.woff2'],
+  ['ComicNeue', '/fonts/ComicNeue-Regular.woff2'],
+  ['ArchitectsDaughter', '/fonts/ArchitectsDaughter-Regular.woff2'],
 ];
 
 export async function loadFonts(): Promise<void> {
   await Promise.all(
-    FACES.map(async ([family, url]) => {
+    FONT_FACES.map(async ([family, url]) => {
       try {
         const face = new FontFace(family, `url(${url})`, { display: 'block' });
         await face.load();

@@ -19,6 +19,7 @@ import {
   type TextElement,
 } from '../element/types';
 import { setAppState, useAppState, type AppState } from '../state/store';
+import { FONT_FAMILY } from '../element/text';
 
 const STROKE_COLORS = ['#1e1e1e', '#e03131', '#2f9e44', '#1971c2', '#f08c00'];
 const BACKGROUND_COLORS = ['transparent', '#ffc9c9', '#b2f2bb', '#a5d8ff', '#ffec99'];
@@ -54,7 +55,7 @@ function SwatchRow({ label, colors, value, onChange }: SwatchRowProps) {
 
 interface OptionRowProps<T extends string | number> {
   label: string;
-  options: { value: T; label: string; glyph: string }[];
+  options: { value: T; label: string; glyph: string; font?: string }[];
   value: T;
   onChange: (value: T) => void;
 }
@@ -73,7 +74,9 @@ function OptionRow<T extends string | number>({ label, options, value, onChange 
             aria-pressed={option.value === value}
             title={option.label}
           >
-            <span aria-hidden="true">{option.glyph}</span>
+            <span aria-hidden="true" style={option.font ? { fontFamily: option.font } : undefined}>
+              {option.glyph}
+            </span>
           </button>
         ))}
       </div>
@@ -320,10 +323,15 @@ export function StylePanel() {
               setAppState({ currentItemFontFamily: value });
               applyTextStyle({ fontFamily: value });
             }}
+            // The glyph is a type specimen rendered in the face itself, so the
+            // picker previews what it selects.
             options={[
-              { value: 1, label: 'Hand-drawn', glyph: '✍' },
-              { value: 2, label: 'Normal', glyph: 'A' },
-              { value: 3, label: 'Code', glyph: '⌨' },
+              { value: 1, label: 'Hand-drawn', glyph: 'Ag', font: FONT_FAMILY[1] },
+              { value: 2, label: 'Normal', glyph: 'Ag', font: FONT_FAMILY[2] },
+              { value: 3, label: 'Code', glyph: 'Ag', font: FONT_FAMILY[3] },
+              { value: 4, label: 'Serif', glyph: 'Ag', font: FONT_FAMILY[4] },
+              { value: 5, label: 'Comic', glyph: 'Ag', font: FONT_FAMILY[5] },
+              { value: 6, label: 'Marker', glyph: 'Ag', font: FONT_FAMILY[6] },
             ]}
           />
           <OptionRow

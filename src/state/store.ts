@@ -10,8 +10,12 @@ export type ToolType =
 
 export type FillStyle = 'hachure' | 'cross-hatch' | 'solid' | 'zigzag';
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
-/** 1 = hand-drawn, 2 = normal, 3 = code. See element/text.ts FONT_FAMILY. */
-export type FontFamily = 1 | 2 | 3;
+/**
+ * 1 = hand-drawn, 2 = normal, 3 = code, 4 = serif, 5 = comic, 6 = marker.
+ * See element/text.ts FONT_FAMILY — every value here needs a face there, and
+ * the Record types make TypeScript enforce that.
+ */
+export type FontFamily = 1 | 2 | 3 | 4 | 5 | 6;
 export type TextAlign = 'left' | 'center' | 'right';
 
 export const ZOOM_MIN = 0.1;

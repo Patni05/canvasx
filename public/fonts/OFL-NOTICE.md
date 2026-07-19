@@ -1,6 +1,6 @@
 # Font licences
 
-All three faces here are licensed under the **SIL Open Font License 1.1** (OFL-1.1).
+Every face here is licensed under the **SIL Open Font License 1.1** (OFL-1.1).
 The OFL requires that this notice ship with the font files. It places no obligation
 whatsoever on this application's own source code.
 
@@ -9,6 +9,9 @@ whatsoever on this application's own source code.
 | `Caveat-Regular.woff2` | Caveat | Copyright The Caveat Project Authors | https://github.com/googlefonts/caveat |
 | `Nunito-Regular.woff2` | Nunito | Copyright The Nunito Project Authors | https://github.com/googlefonts/nunito |
 | `JetBrainsMono-Regular.woff2` | JetBrains Mono | Copyright The JetBrains Mono Project Authors | https://github.com/JetBrains/JetBrainsMono |
+| `Lora-Regular.woff2` | Lora | Copyright The Lora Project Authors | https://github.com/cyrealtype/Lora-Cyrillic |
+| `ComicNeue-Regular.woff2` | Comic Neue | Copyright The Comic Neue Project Authors | https://github.com/crozynski/comicneue |
+| `ArchitectsDaughter-Regular.woff2` | Architects Daughter | Copyright Kimberly Geswein | https://github.com/googlefonts/architectsdaughter |
 
 Each file is the **latin subset** as served by Google Fonts — a few tens of KB rather
 than the full multi-script face. If you need other scripts, re-fetch the relevant

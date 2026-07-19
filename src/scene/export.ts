@@ -2,6 +2,7 @@ import rough from 'roughjs';
 import { getElementBounds } from '../element/bounds';
 import type { ExcaliElement } from '../element/types';
 import { getAppState } from '../state/store';
+import { FONT_FACES } from '../fonts/load';
 import type { Bounds } from '../utils/math';
 import { getFileBlob, blobToDataUrl } from './files';
 import { makeLayer, renderElementsTo } from './render';
@@ -217,12 +218,6 @@ export async function extractSceneFromPng(file: Blob): Promise<string | null> {
 
 // ------------------------------------------------------------------- SVG
 
-const FONT_FILES: [family: string, url: string][] = [
-  ['Caveat', '/fonts/Caveat-Regular.woff2'],
-  ['Nunito', '/fonts/Nunito-Regular.woff2'],
-  ['JetBrainsMono', '/fonts/JetBrainsMono-Regular.woff2'],
-];
-
 /**
  * Fonts must travel inside the SVG as base64 @font-face, or the file renders in
  * Times New Roman on any machine that lacks them.
@@ -234,7 +229,7 @@ const FONT_FILES: [family: string, url: string][] = [
 async function embeddedFontCss(usedFamilies: Set<string>): Promise<string> {
   const faces: string[] = [];
 
-  for (const [family, url] of FONT_FILES) {
+  for (const [family, url] of FONT_FACES) {
     if (!usedFamilies.has(family)) continue;
     try {
       const response = await fetch(url);
