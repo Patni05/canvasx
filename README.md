@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/Patni05/canvasx/actions/workflows/ci.yml/badge.svg)](https://github.com/Patni05/canvasx/actions/workflows/ci.yml)
 
+**Live: [canvasx.canvax1.workers.dev](https://canvasx.canvax1.workers.dev)** — one Cloudflare
+Worker serving both the app and the encrypted collaboration relay.
+
 An infinite canvas for sketching, diagramming, notes and code, with a hand-drawn
 aesthetic. Shapes and arrows that bind to them, freehand drawing, text in real
 handwriting fonts, images, sticky notes, callouts, tables, syntax-highlighted code
@@ -240,7 +243,8 @@ at **1.6ms per keystroke over 10,000 elements**.
 
 ## Deploying
 
-Cloudflare, as one Worker serving both the app and the relay.
+Cloudflare, as one Worker serving both the app and the relay. Live at
+**[canvasx.canvax1.workers.dev](https://canvasx.canvax1.workers.dev)**.
 
 ```bash
 npx wrangler login   # once — browser OAuth
